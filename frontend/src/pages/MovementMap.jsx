@@ -58,9 +58,8 @@ export default function MovementMap() {
       <div className="bg-white rounded-xl overflow-hidden shadow-sm">
         <MapContainer center={center} zoom={9} style={{ height: 520, width: '100%' }}>
           <TileLayer
-            attribution='&copy; OpenStreetMap contributors &copy; CARTO'
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-            subdomains="abcd" />
+            attribution='Powered by Esri'
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" />
           {selected === 'all' ? (
             visible.map((s) => (
               <Marker key={`${s.id}-${s.captured_at}`} position={[s.latitude, s.longitude]} icon={tigerIcon}>
