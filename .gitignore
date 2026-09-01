@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# Node
+node_modules/
+.next/
+frontend/dist/
+
+# Environment
+.env
+.env.local
+
+# Data
+data/uploads/*
+!data/uploads/.gitkeep
+data/faiss_index/*
+!data/faiss_index/.gitkeep
+
+# ML artifacts
+ml/reid/checkpoints/*.pt
+ml/detection/weights/*.pt
+ml/datasets/atrw/*
+!ml/datasets/atrw/.gitkeep
+ml/datasets/raw_images/*
+!ml/datasets/raw_images/.gitkeep
+ml/datasets/processed/*
+!ml/datasets/processed/.gitkeep
+
+# Database
+*.db
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
