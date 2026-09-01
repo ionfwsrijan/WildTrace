@@ -8,7 +8,7 @@ just *"what species was seen"* but *"which individual, where it was seen before,
 and what has changed."*
 
 **Track:** Wildlife & Anti-Poaching · **Team:** Srijan Jaiswal (leader),
-Madhav Bharadwaj, M Rohit Kumar
+Madhav Bharadwaj, M Rohit Kumar, Prisha Pandey
 
 > ⚠️ **Framing:** WildTrace surfaces anomalies (e.g. "WT-024 absent from usual
 > zone for unusually long period") for **human rangers to verify and act on**.
