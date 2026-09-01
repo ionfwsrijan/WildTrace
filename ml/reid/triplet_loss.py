@@ -25,6 +25,10 @@ class BatchHardTripletLoss(nn.Module):
         self.margin = margin
 
     def forward(self, embeddings: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        batch = embeddings.shape[0]
+        if batch < 2:
+            return embeddings.new_zeros(1)[0]
+
         # Pairwise squared Euclidean distances
         dist = torch.cdist(embeddings, embeddings, p=2)
 
@@ -32,17 +36,22 @@ class BatchHardTripletLoss(nn.Module):
         same = labels == labels.t()  # (batch, batch) boolean of same individual
         same.fill_diagonal_(False)
 
-        # Hardest positive: min distance to a same-label sample
         pos_mask = same.float()
-        # Replace zeros with large number so min ignores them
-        pos_dist = dist + (1 - pos_mask) * 1e9
+        # Replace zero-within-row entries with a large finite sentinel so
+        # `.min` never selects a co-occurring different-identity example.
+        sentinel = 1e4
+        no_positive_row = pos_mask.sum(dim=1) == 0  # anchors lacking a positive
+        pos_dist = dist + (1 - pos_mask) * sentinel
         hardest_pos = pos_dist.min(dim=1)[0]
 
-        # Hardest negative: min distance to a different-label sample
         neg_mask = (~same).float()
-        pos_dist_neg = dist + (1 - neg_mask) * 1e9
+        pos_dist_neg = dist + (1 - neg_mask) * sentinel
         hardest_neg = pos_dist_neg.min(dim=1)[0]
 
-        # Batch-hard triplet loss (mean over valid anchors only)
-        loss = torch.relu(hardest_pos - hardest_neg + self.margin)
-        return loss.mean()
+        # Batch-hard triplet loss, dropping anchors that have no positive in the
+        # batch (their hardest_pos is the sentinel and would corrupt the loss).
+        valid = ~no_positive_row
+        if not valid.any():
+            return embeddings.new_zeros(1)[0]
+        loss_all = torch.relu(hardest_pos - hardest_neg + self.margin)
+        return loss_all[valid].mean()

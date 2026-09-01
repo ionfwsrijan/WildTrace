@@ -60,11 +60,12 @@ cd wildtrace
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# Initialize DB + empty index
+# Initialize DB
 python -m scripts.setup_db
 
-# Seed believable demo data (12 individuals, ~6 sightings each, procedural images)
-python -m scripts.seed_demo_data
+# (Optional) populate with REAL ATRW Amur-tiger sightings.
+# Skip this block and the app already ships with the DB pre-loaded from real data.
+python -m scripts.load_real_data        # reads data/sightings_real.csv
 
 # Run the API server
 cd backend
@@ -83,20 +84,34 @@ npm run dev
 
 Open http://localhost:5173
 
-### 3. Real ML (optional — for a production embedding model)
+### 3. Real ML (training the embedding model on ATRW)
 
-1. Download **ATRW** (Amur Tiger Re-identification in the Wild) into `ml/datasets/atrw/`.
-2. Prepare per-individual crops under `ml/datasets/processed/` (one folder per individual).
-3. Train the embedding model:
+The repo ships pre-loaded with a trained DenseNet121 embedding model, a FAISS
+index, and 848 real Amur-tiger sightings. To reproduce/customise that from the
+raw **ATRW** dataset:
+
+1. Download + extract ATRW re-ID train images & annotations (GCP mirror):
    ```bash
-   python -m ml.reid.train --data ml/datasets/processed --epochs 30
+   python -m scripts.download_atrw             # 3392 cropped tiger images
    ```
-4. Build the FAISS index:
+2. Group real images per individual and generate `data/sightings_real.csv`:
+   ```bash
+   python -m scripts.prepare_atrw --individuals 24
+   ```
+3. Train the embedding model on the real per-individual folders:
+   ```bash
+   python -m ml.reid.train --data ml/datasets/processed --epochs 15
+   ```
+4. Build the FAISS index from the real embeddings:
    ```bash
    python -m scripts.build_faiss_index --data ml/datasets/processed \
        --checkpoint ml/reid/checkpoints/densenet121_triplet_best.pt
    ```
-5. Evaluate Rank-1 / mAP@1:
+5. Load the real individuals + sightings + alerts into the DB:
+   ```bash
+   python -m scripts.load_real_data
+   ```
+6. Evaluate Rank-1 / mAP@1:
    ```bash
    python -m ml.reid.evaluate --data ml/datasets/processed
    ```

@@ -42,11 +42,18 @@ class TripletDataset(Dataset):
         if identity_map is None:
             identity_map = self._scan(data_root)
         self.identity_map = identity_map
-        self.labels = sorted(set(identity_map.values()))
         # label -> list of image paths
         self.groups: Dict[str, List[str]] = {}
         for path, label in identity_map.items():
             self.groups.setdefault(label, []).append(path)
+        # Only keep identities with enough images to form a valid positive pair
+        # (>= max(2, images_per_identity)); singleton identities would produce
+        # anchors with no positive in the batch and corrupt batch-hard training.
+        min_per_id = max(2, images_per_identity)
+        self.groups = {lab: ps for lab, ps in self.groups.items() if len(ps) >= min_per_id}
+        self.labels = sorted(self.groups.keys())
+        if not self.labels:
+            raise ValueError("No individual has enough images to form a valid positive pair.")
 
     @staticmethod
     def _scan(data_root: Path):

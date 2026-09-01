@@ -21,8 +21,9 @@ export default function MapView({ sightings, height = 420 }) {
   return (
     <MapContainer center={center} zoom={8} style={{ height, width: '100%' }}>
       <TileLayer
-        attribution='&copy; OpenStreetMap contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        attribution='&copy; OpenStreetMap contributors &copy; CARTO'
+        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+        subdomains="abcd" />
       {sorted.map((s, i) => (
         <Marker key={s.id} position={[s.latitude, s.longitude]} icon={markerIcon}>
           <Popup>

@@ -9,8 +9,14 @@ Usage:
 """
 import argparse
 import random
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+for _p in (str(ROOT), str(ROOT / "backend")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -20,7 +26,6 @@ from app.db.database import init_db, SessionLocal, utcnow
 from app.models.individual import Individual
 from app.models.sighting import Sighting
 
-ROOT = Path(__file__).resolve().parent.parent
 DATA_ROOT = ROOT / "ml" / "datasets" / "processed"
 UPLOAD_DIR = ROOT / "data" / "uploads"
 

@@ -53,4 +53,12 @@ def get_settings() -> Settings:
         val = getattr(s, attr)
         if isinstance(val, Path) and not val.is_absolute():
             setattr(s, attr, (PROJECT_ROOT / val).resolve())
+
+    # Normalise relative SQLite database URLs (e.g. sqlite:///./wildtrace.db)
+    # against the project root too, so seed/server always share one DB file.
+    url = s.DATABASE_URL
+    if url.startswith("sqlite:///") and not url.startswith("sqlite:////"):
+        rel = url[len("sqlite:///"):]
+        if rel and rel != ":memory:" and not Path(rel).is_absolute():
+            s.DATABASE_URL = f"sqlite:///{(PROJECT_ROOT / rel).resolve()}"
     return s
