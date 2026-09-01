@@ -1,17 +1,28 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { BellRing, ShieldCheck, MapPin, UserPlus, Clock, AlertTriangle, Check } from 'lucide-react'
 import { api } from '../api/client'
+import PageHeader from '../components/PageHeader'
+import TabBar from '../components/ui/tab-bar'
+import { Card, CardContent } from '../components/ui/card'
+import { Badge } from '../components/ui/badge'
+import { Button } from '../components/ui/button'
+import { Skeleton } from '../components/ui/skeleton'
 
-const TYPE_LABEL = {
-  absence_anomaly: 'Absence anomaly',
-  new_individual: 'New individual',
-  location_jump: 'Location jump',
+const TYPE_META = {
+  absence_anomaly: { label: 'Absence anomaly', icon: Clock, tone: 'amber' },
+  new_individual: { label: 'New individual', icon: UserPlus, tone: 'blue' },
+  location_jump: { label: 'Location jump', icon: MapPin, tone: 'violet' },
 }
 
-const STATUS_STYLE = {
-  open: 'bg-red-100 text-red-700',
-  reviewed: 'bg-amber-100 text-amber-700',
-  resolved: 'bg-green-100 text-green-700',
+function StatusBadge({ status }) {
+  const map = {
+    open: { label: 'Open', variant: 'red' },
+    reviewed: { label: 'Reviewed', variant: 'amber' },
+    resolved: { label: 'Resolved', variant: 'green' },
+  }
+  const m = map[status] || { label: status, variant: 'neutral' }
+  return <Badge variant={m.variant} dot>{m.label}</Badge>
 }
 
 export default function Alerts() {
@@ -22,6 +33,16 @@ export default function Alerts() {
   useEffect(() => {
     api.alerts(filter === 'all' ? null : filter).then(setAlerts).catch(console.error)
   }, [filter])
+
+  const tabs = useMemo(() => {
+    const count = (s) => alerts.filter((a) => a.status === s).length
+    return [
+      { value: 'open', label: 'Open', count: count('open') },
+      { value: 'reviewed', label: 'Reviewed', count: count('reviewed') },
+      { value: 'all', label: 'All' },
+      { value: 'resolved', label: 'Resolved', count: count('resolved') },
+    ]
+  }, [alerts, filter])
 
   async function resolve(a) {
     setBusyId(a.id)
@@ -34,63 +55,76 @@ export default function Alerts() {
   }
 
   return (
-    <div className="space-y-5">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-forest-900">Ranger Alerts</h1>
-          <p className="text-sm text-gray-600">
-            Human verification workflow — WildTrace flags anomalies, rangers act on them.
-          </p>
-        </div>
-        <div className="flex gap-1 bg-white rounded-lg p-1 border border-gray-200">
-          {['open', 'all', 'resolved'].map((f) => (
-            <button key={f} onClick={() => setFilter(f)}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${
-                filter === f ? 'bg-forest-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
-              {f[0].toUpperCase() + f.slice(1)}
-            </button>
-          ))}
-        </div>
-      </header>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Verification Workflow"
+        title="Ranger Alerts"
+        description="Human verification — WildTrace flags anomalies, rangers review and act."
+        icon={BellRing}
+        actions={<TabBar tabs={tabs} active={filter} onChange={setFilter} />}
+      />
 
-      <div className="space-y-3">
-        {alerts.length === 0 && (
-          <div className="bg-white rounded-xl p-10 text-center text-gray-400">
-            No {filter} alerts.
-          </div>
-        )}
-        {alerts.map((a) => (
-          <div key={a.id} className="bg-white rounded-xl shadow-sm p-5 flex items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3">
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLE[a.status]}`}>
-                  {a.status}
-                </span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                  {TYPE_LABEL[a.alert_type] || a.alert_type}
-                </span>
-                {a.individual_id && (
-                  <Link to={`/individuals/${a.individual_id}`}
-                    className="text-sm font-semibold text-forest-600 hover:underline">
-                    {a.individual_id}
-                  </Link>
-                )}
-              </div>
-              <p className="mt-2 text-gray-700 text-sm">{a.description}</p>
-              <p className="mt-1 text-xs text-gray-400">
-                {new Date(a.created_at).toLocaleString()}
-                {a.reviewed_by ? ` · reviewed by ${a.reviewed_by}` : ''}
-              </p>
+      {alerts.length === 0 && !busyId ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-500/15 text-brand-300">
+              <ShieldCheck className="h-7 w-7" />
             </div>
-            {a.status !== 'resolved' && (
-              <button onClick={() => resolve(a)} disabled={busyId === a.id}
-                className="shrink-0 bg-forest-600 hover:bg-forest-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg px-4 py-2 transition">
-                {busyId === a.id ? '…' : 'Resolve'}
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
+            <p className="mt-4 font-semibold text-white">No {filter} alerts</p>
+            <p className="mt-1 text-sm text-ink-500">The monitoring workflow is currently quiet.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4 animate-fade-up">
+          {alerts.length === 0 && [1, 2, 3].map((i) => <Skeleton key={i} className="h-28" />)}
+          {alerts.map((a) => {
+            const meta = TYPE_META[a.alert_type] || { label: a.alert_type, icon: AlertTriangle, tone: 'neutral' }
+            return (
+              <Card key={a.id} className={`overflow-hidden transition-shadow hover:shadow-cardHover ${a.status === 'open' ? 'border-l-4 border-l-red-400' : ''}`}>
+                <CardContent className="p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                          a.status === 'resolved' ? 'bg-green-500/15 text-green-300' : a.status === 'reviewed' ? 'bg-accent-500/15 text-accent-300' : 'bg-red-500/15 text-red-300'
+                        }`}>
+                          {a.status === 'resolved' ? <Check className="h-4 w-4" /> : <meta.icon className="h-4 w-4" />}
+                        </span>
+                        <StatusBadge status={a.status} />
+                        <Badge variant={meta.tone}>{meta.label}</Badge>
+                        {a.individual_id && (
+                          <Link to={`/individuals/${a.individual_id}`} className="text-sm font-semibold text-brand-400 hover:underline">
+                            {a.individual_id}
+                          </Link>
+                        )}
+                      </div>
+                      <p className="mt-2 text-sm text-ink-200">{a.description}</p>
+                      <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-500">
+                        <Clock className="h-3.5 w-3.5" />
+                        {new Date(a.created_at).toLocaleString()}
+                        {a.reviewed_by ? ` · reviewed by ${a.reviewed_by}` : ''}
+                      </p>
+                    </div>
+
+                    {a.status !== 'resolved' && (
+                      <div className="shrink-0 sm:pl-4">
+                        <Button
+                          size="sm"
+                          variant={a.status === 'open' ? 'default' : 'secondary'}
+                          onClick={() => resolve(a)}
+                          disabled={busyId === a.id}
+                        >
+                          {busyId === a.id ? 'Resolving…' : 'Resolve'}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

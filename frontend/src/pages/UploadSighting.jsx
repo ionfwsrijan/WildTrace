@@ -1,6 +1,27 @@
 import React, { useState } from 'react'
+import { ImagePlus, Camera, Loader2, MapPin, LandPlot, CalendarDays } from 'lucide-react'
 import { api } from '../api/client'
 import IdentityMatchResult from '../components/IdentityMatchResult'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
+import { Button } from '../components/ui/button'
+
+const inputCls = [
+  'w-full rounded-lg border border-ink-700 bg-[#15181d] px-3 py-2 text-sm text-white',
+  'placeholder:text-ink-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500',
+  'transition',
+].join(' ')
+const labelCls = 'block text-sm font-medium text-ink-600 mb-1.5'
+
+function Field({ icon: Icon, label, children }) {
+  return (
+    <div>
+      <label className={`${labelCls} inline-flex items-center gap-1.5`}>
+        <Icon className="h-4 w-4 text-brand-400" /> {label}
+      </label>
+      {children}
+    </div>
+  )
+}
 
 export default function UploadSighting() {
   const [file, setFile] = useState(null)
@@ -43,66 +64,66 @@ export default function UploadSighting() {
     }
   }
 
-  const inputCls =
-    'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-forest-500/40'
-  const labelCls = 'block text-sm font-medium text-gray-600 mb-1'
-
   return (
-    <div className="max-w-2xl mx-auto">
-      <header className="mb-6">
-        <h1 className="font-display text-2xl font-bold text-forest-900">Upload a Sighting</h1>
-        <p className="text-sm text-gray-600 mt-1">
-          Camera-trap photo → detect → embed → similarity search → match or register.
-        </p>
+    <div className="max-w-2xl mx-auto space-y-6">
+      <header className="flex items-center gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-500/15 text-brand-300">
+          <Camera className="h-6 w-6" />
+        </div>
+        <div>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-white">Upload a Sighting</h1>
+          <p className="text-sm text-ink-500">Camera trap → detect → embed → similarity search → match or register.</p>
+        </div>
       </header>
 
-      <form onSubmit={onSubmit} className="bg-white rounded-xl shadow-sm p-6 space-y-5">
-        <div>
-          <label className={labelCls}>Camera-trap image *</label>
-          <input type="file" accept="image/*" onChange={onFile} className="text-sm" required />
-          {preview && (
-            <img src={preview} alt="preview" className="mt-3 rounded-lg border h-48 object-cover" />
-          )}
-        </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>New observation</CardTitle>
+          <CardDescription>Provide a photo and optional capture metadata.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={onSubmit} className="space-y-5">
+            <Field icon={ImagePlus} label="Camera-trap image *">
+              <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-ink-700 bg-[#0c0e11] px-4 py-8 text-center transition hover:border-brand-400 hover:bg-brand-500/10">
+                <ImagePlus className="h-8 w-8 text-ink-500" />
+                <span className="mt-2 text-sm font-medium text-ink-200">
+                  {file ? file.name : 'Click to choose an image'}
+                </span>
+                <span className="text-xs text-ink-500">JPG or PNG · single camera-trap frame</span>
+                <input type="file" accept="image/*" onChange={onFile} className="sr-only" required />
+              </label>
+              {preview && (
+                <img src={preview} alt="preview" className="mt-3 h-48 w-full rounded-lg border border-ink-700 object-cover shadow-card" />
+              )}
+            </Field>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={labelCls}>Latitude</label>
-            <input className={inputCls} value={lat} onChange={(e) => setLat(e.target.value)}
-              placeholder="45.1000" />
-          </div>
-          <div>
-            <label className={labelCls}>Longitude</label>
-            <input className={inputCls} value={lon} onChange={(e) => setLon(e.target.value)}
-              placeholder="136.2000" />
-          </div>
-        </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field icon={MapPin} label="Latitude">
+                <input className={inputCls} value={lat} onChange={(e) => setLat(e.target.value)} placeholder="46.1000" />
+              </Field>
+              <Field icon={MapPin} label="Longitude">
+                <input className={inputCls} value={lon} onChange={(e) => setLon(e.target.value)} placeholder="136.2000" />
+              </Field>
+            </div>
 
-        <div>
-          <label className={labelCls}>Zone name</label>
-          <input className={inputCls} value={zone} onChange={(e) => setZone(e.target.value)}
-            placeholder="Sikhote-Alin Central" />
-        </div>
+            <Field icon={LandPlot} label="Zone name">
+              <input className={inputCls} value={zone} onChange={(e) => setZone(e.target.value)} placeholder="Sikhote-Alin Central" />
+            </Field>
 
-        <div>
-          <label className={labelCls}>Captured at (optional, ISO)</label>
-          <input className={inputCls} value={capturedAt} onChange={(e) => setCapturedAt(e.target.value)}
-            placeholder="2026-08-14T09:30:00" />
-        </div>
+            <Field icon={CalendarDays} label="Captured at (optional)">
+              <input className={inputCls} value={capturedAt} onChange={(e) => setCapturedAt(e.target.value)} placeholder="2026-08-14T09:30:00" />
+            </Field>
 
-        <button type="submit" disabled={busy}
-          className="w-full bg-forest-600 hover:bg-forest-700 disabled:opacity-50 text-white font-semibold rounded-lg py-2.5 transition">
-          {busy ? 'Running pipeline…' : 'Run WildTrace pipeline'}
-        </button>
+            <Button type="submit" disabled={busy} className="w-full" size="lg">
+              {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Running pipeline…</> : 'Run WildTrace pipeline'}
+            </Button>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
-      </form>
+            {error && <p className="rounded-lg bg-red-600/15 px-3 py-2 text-sm text-red-300">{error}</p>}
+          </form>
+        </CardContent>
+      </Card>
 
-      {result && (
-        <div className="mt-6">
-          <IdentityMatchResult result={result} />
-        </div>
-      )}
+      {result && <IdentityMatchResult result={result} />}
     </div>
   )
 }
