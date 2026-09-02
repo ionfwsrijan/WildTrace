@@ -10,6 +10,8 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  health: () => request('/api/health'),
+
   stats: () => request('/api/dashboard/stats'),
 
   individuals: (limit = 50, offset = 0) =>
@@ -41,4 +43,7 @@ export const api = {
     if (captured_at) fd.append('captured_at', captured_at)
     return request('/api/sightings/upload', { method: 'POST', body: fd })
   },
+
+  uploadSighting: (formData) =>
+    request('/api/sightings/upload', { method: 'POST', body: formData }),
 }

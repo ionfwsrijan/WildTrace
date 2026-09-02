@@ -1,229 +1,204 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, PieChart, Pie, Legend,
+import { 
+  Bar, 
+  BarChart, 
+  CartesianGrid, 
+  Cell, 
+  ResponsiveContainer, 
+  Tooltip, 
+  XAxis, 
+  YAxis,
+  Area,
+  AreaChart
 } from 'recharts'
-import { Users, Activity, TrendingUp, Hash } from 'lucide-react'
+import { 
+  PawPrint, 
+  Activity, 
+  TrendingUp, 
+  Users, 
+  TreePine, 
+  ShieldCheck, 
+  ArrowRight,
+  Sparkles
+} from 'lucide-react'
 import { api } from '../api/client'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
-import StatCard from '../components/ui/stat-card'
-import PageHeader from '../components/PageHeader'
-import { Badge } from '../components/ui/badge'
-import { Skeleton } from '../components/ui/skeleton'
-import { Button } from '../components/ui/button'
+import { TopHeaderBar } from '../components/Navigation'
+import { formatDate } from '../lib/format'
 
-const PALETTE = ['#2e8f51', '#f5a623', '#3b82f6', '#8b5cf6', '#ef4444', '#14b8a6', '#f97316', '#64748b']
-
-function chartTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="rounded-lg border border-ink-700 bg-[#15181d] px-3 py-2 text-xs shadow-popover">
-      <p className="font-semibold text-white">{label}</p>
-      {payload.map((p) => (
-        <p key={p.dataKey} className="flex items-center gap-1.5 text-ink-300">
-          <span className="h-2 w-2 rounded-full" style={{ background: p.color || p.fill }} />
-          {p.name}: <span className="font-semibold text-white">{p.value}</span>
-        </p>
-      ))}
-    </div>
-  )
-}
+const PALETTE = ['#10b981', '#06b6d4', '#3b82f6', '#a855f7', '#ec4899', '#f59e0b', '#84cc16']
 
 export default function PopulationInsights() {
   const [individuals, setIndividuals] = useState([])
 
   useEffect(() => {
-    api.individuals(500).then(setIndividuals).catch(console.error)
+    api.individuals(500).then(setIndividuals).catch(() => setIndividuals([]))
   }, [])
 
   const intervals = useMemo(
     () => individuals
-      .filter((i) => i.avg_sighting_interval_days > 0)
+      .filter((individual) => individual.avg_sighting_interval_days > 0)
       .sort((a, b) => b.total_sightings - a.total_sightings),
     [individuals],
   )
 
   const bySightings = useMemo(
-    () => intervals.slice(0, 12).map((i) => ({
-      id: i.id,
-      sightings: i.total_sightings,
-      interval: Math.round(i.avg_sighting_interval_days * 10) / 10,
+    () => intervals.slice(0, 10).map((individual) => ({
+      id: individual.id,
+      sightings: individual.total_sightings,
+      interval: Math.round(individual.avg_sighting_interval_days * 10) / 10,
     })),
     [intervals],
   )
 
   const activityByZone = useMemo(() => {
-    const map = {}
-    individuals.forEach((i) => (i.sightings || []).forEach((s) => {
-      const z = s.zone_name || 'Unknown'
-      map[z] = (map[z] || 0) + 1
+    const counts = {}
+    individuals.forEach((individual) => (individual.sightings || []).forEach((sighting) => {
+      const zone = sighting.zone_name || 'Unknown Zone'
+      counts[zone] = (counts[zone] || 0) + 1
     }))
-    const arr = Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
-    const top = arr.slice(0, 6)
-    const rest = arr.slice(6).reduce((acc, x) => acc + x.value, 0)
-    if (rest > 0) top.push({ name: 'Other', value: rest })
-    return top
+    return Object.entries(counts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
   }, [individuals])
 
-  const bins = useMemo(() => {
-    if (!intervals.length) return []
-    const max = Math.max(...intervals.map((i) => i.total_sightings))
-    const groups = Math.min(8, max)
-    const counts = new Array(groups).fill(0)
-    intervals.forEach((i) => {
-      const idx = i.total_sightings === max ? groups - 1 : Math.floor((i.total_sightings / (max + 1)) * groups)
-      counts[idx] += 1
-    })
-    return counts.map((count, idx) => {
-      const lo = Math.round(((idx) / groups) * max)
-      const hi = Math.round((((idx + 1) / groups) * max)) - 1
-      return { name: idx === groups - 1 ? `${lo}+` : `${lo}–${hi}`, Individuals: count }
-    })
+  const avgInterval = useMemo(() => {
+    const avg = intervals.reduce((sum, ind) => sum + (ind.avg_sighting_interval_days || 0), 0) / (intervals.length || 1)
+    return avg > 0 ? `${avg.toFixed(1)} Days` : '—'
   }, [intervals])
 
-  const totalSightings = intervals.reduce((a, i) => a + (i.total_sightings || 0), 0)
-  const avgInterval = intervals.length ? intervals.reduce((a, i) => a + i.avg_sighting_interval_days, 0) / intervals.length : 0
-
-  if (!individuals.length) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-14 w-72" />
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-28" />)}</div>
-        <div className="grid gap-6 lg:grid-cols-2"><Skeleton className="h-80" /><Skeleton className="h-80" /></div>
-      </div>
-    )
-  }
+  const avgSightingsPerTiger = useMemo(
+    () => (individuals.length ? `${(individuals.reduce((sum, ind) => sum + (ind.total_sightings || 0), 0) / individuals.length).toFixed(1)}` : '—'),
+    [individuals],
+  )
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="Population Analytics"
-        title="Population Insights"
-        description="Aggregate patterns across all tracked individuals in the reserve."
+      {/* Top Header */}
+      <TopHeaderBar 
+        title="Population & Species Insights" 
+        subtitle="Longitudinal cohort trends, sighting frequencies, and habitat distributions" 
       />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 animate-fade-up">
-        <StatCard icon={Users} label="Tracked Individuals" value={individuals.length} tone="green" />
-        <StatCard icon={Activity} label="Total Sightings" value={totalSightings} tone="blue" />
-        <StatCard icon={TrendingUp} label="Avg Interval (days)" value={avgInterval.toFixed(1)} tone="amber" />
-        <StatCard icon={Hash} label="Zones Active" value={new Set((individuals.flatMap((i) => (i.sightings || []).map((s) => s.zone_name)))).size} tone="violet" />
+      {/* Top Summary Metric Tiles */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+        <div className="p-4 rounded-2xl bg-[#0f1511] border border-white/5 shadow-md">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-white/40">Total Registered</p>
+          <p className="mt-1 font-syne text-2xl font-bold text-emerald-400">{individuals.length} Tigers</p>
+        </div>
+        <div className="p-4 rounded-2xl bg-[#0f1511] border border-white/5 shadow-md">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-white/40">Avg. Re-ID Interval</p>
+          <p className="mt-1 font-syne text-2xl font-bold text-cyan-400">{avgInterval}</p>
+        </div>
+        <div className="p-4 rounded-2xl bg-[#0f1511] border border-white/5 shadow-md">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-white/40">Model Embedding</p>
+          <p className="mt-1 font-syne text-2xl font-bold text-purple-400">512-d Triplet</p>
+        </div>
+        <div className="p-4 rounded-2xl bg-[#0f1511] border border-white/5 shadow-md">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-white/40">Avg. Sightings per Tiger</p>
+          <p className="mt-1 font-syne text-2xl font-bold text-emerald-400">{avgSightingsPerTiger}</p>
+        </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Sightings per individual */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Sightings per Individual</CardTitle>
-            <CardDescription>Top tracked tigers by capture count</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={bySightings} margin={{ top: 4, right: 8, bottom: 0, left: -16 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 18%)" vertical={false} />
-                <XAxis dataKey="id" tick={{ fontSize: 11, fill: '#8b94a1' }} interval={0} angle={-32} height={58} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#8b94a1' }} axisLine={false} tickLine={false} />
-                <Tooltip content={chartTooltip} cursor={{ fill: 'hsl(0 0% 12%)' }} />
-                <Bar dataKey="sightings" name="Sightings" radius={[4, 4, 0, 0]}>
-                  {bySightings.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
+      {/* Charts Grid: Left Sighting Distribution + Right Zone Breakdown */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Sighting Frequency per Individual (lg:col-span-7) */}
+        <div className="lg:col-span-7 rounded-3xl border border-white/5 bg-[#0f1511] p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-syne text-base font-bold text-white">Capture Frequency per Individual</h3>
+              <p className="text-xs text-white/50">Total validated sightings for top tracked tigers</p>
+            </div>
+          </div>
+
+          <div className="h-64 w-full pt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={bySightings} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                <XAxis dataKey="id" stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#0d1410',
+                    borderColor: 'rgba(16,185,129,0.3)',
+                    borderRadius: '12px',
+                    color: '#fff',
+                    fontSize: '12px'
+                  }}
+                />
+                <Bar dataKey="sightings" radius={[8, 8, 0, 0]}>
+                  {bySightings.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={PALETTE[index % PALETTE.length]} />
+                  ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        {/* Activity by zone */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Activity by Zone</CardTitle>
-            <CardDescription>Share of sightings across the reserve</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={activityByZone} dataKey="value" nameKey="name" innerRadius={60} outerRadius={95} paddingAngle={2} stroke="none">
-                  {activityByZone.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
-                </Pie>
-                <Tooltip content={chartTooltip} />
-                <Legend
-                  layout="vertical" align="right" verticalAlign="middle"
-                  iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: '#adb4bf' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        {/* Zone Activity Breakdown (lg:col-span-5) */}
+        <div className="lg:col-span-5 rounded-3xl border border-white/5 bg-[#0f1511] p-6 shadow-xl space-y-4">
+          <div>
+            <h3 className="font-syne text-base font-bold text-white">Zone Territorial Density</h3>
+            <p className="text-xs text-white/50">Capture density across reserve sectors</p>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            {activityByZone.map((zone, idx) => (
+              <div key={zone.name} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-white font-medium">{zone.name}</span>
+                  <span className="text-emerald-400 font-bold">{zone.value} captures</span>
+                </div>
+                <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+                  <div 
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-purple-500"
+                    style={{ width: `${Math.min(100, (zone.value / (activityByZone[0]?.value || 1)) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Sighting Frequency Distribution</CardTitle>
-          <CardDescription>How individuals are distributed by capture volume</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={bins} margin={{ top: 4, right: 8, bottom: 0, left: -16 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 18%)" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#8b94a1' }} axisLine={false} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#8b94a1' }} axisLine={false} tickLine={false} />
-              <Tooltip content={chartTooltip} cursor={{ fill: 'hsl(0 0% 12%)' }} />
-              <Bar dataKey="Individuals" name="Individuals" fill="#2e8f51" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+      {/* Tracked Individuals Directory Grid */}
+      <div className="space-y-4 pt-2">
+        <div className="flex items-center justify-between">
+          <h3 className="font-syne text-lg font-bold text-white">Tracked Individuals Directory</h3>
+          <span className="text-xs text-emerald-400 font-semibold">{individuals.length} Profiles</span>
+        </div>
 
-      {/* Tracking summary table */}
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <div>
-            <CardTitle>Tracking Summary</CardTitle>
-            <CardDescription>Per-individual monitoring statistics</CardDescription>
-          </div>
-          <Button size="sm" variant="outline" asChild>
-            <Link to="/map">Open movement map</Link>
-          </Button>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="scrollbar-thin overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm">
-              <thead>
-                <tr className="border-b border-ink-700/50 text-left text-xs font-semibold uppercase tracking-wide text-ink-500">
-                  <th className="py-3 pr-4">ID</th>
-                  <th className="py-3 pr-4">Sightings</th>
-                  <th className="py-3 pr-4">Relative volume</th>
-                  <th className="py-3 pr-4">Avg interval</th>
-                  <th className="py-3">First seen</th>
-                  <th className="py-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {intervals.map((i) => {
-                  const pct = Math.min(100, (i.total_sightings / (intervals[0]?.total_sightings || 1)) * 100)
-                  const active = (Date.now() - new Date(i.last_seen_at)) < 60 * 24 * 3600 * 1000
-                  return (
-                    <tr key={i.id} className="border-b border-ink-800/40 transition-colors hover:bg-ink-900/10">
-                      <td className="py-3 pr-4">
-                        <Link to={`/individuals/${i.id}`} className="font-semibold text-brand-400 hover:underline">{i.id}</Link>
-                      </td>
-                      <td className="py-3 pr-4 font-semibold text-white">{i.total_sightings}</td>
-                      <td className="py-3 pr-4">
-                        <div className="h-2 w-32 overflow-hidden rounded-full bg-ink-800/50">
-                          <div className="h-full rounded-full bg-brand-500" style={{ width: `${pct}%` }} />
-                        </div>
-                      </td>
-                      <td className="py-3 pr-4 text-ink-300">{Math.round(i.avg_sighting_interval_days * 10) / 10} d</td>
-                      <td className="py-3 pr-4 text-ink-300">{new Date(i.first_seen_at).toLocaleDateString()}</td>
-                      <td className="py-3">
-                        <Badge variant={active ? 'green' : 'neutral'} dot={active}>{active ? 'Active' : 'Resting'}</Badge>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {individuals.map((ind) => (
+            <Link
+              key={ind.id}
+              to={`/individuals/${ind.id}`}
+              className="group p-5 rounded-2xl bg-[#0f1511] border border-white/5 hover:border-emerald-500/40 hover:bg-[#121c16] transition-all transform hover:-translate-y-1 shadow-lg space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-syne font-bold text-base text-white group-hover:text-emerald-400 transition-colors">
+                  {ind.id}
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  {ind.species || 'Amur Tiger'}
+                </span>
+              </div>
+
+              <div className="space-y-1 text-xs text-white/50">
+                <p>Sightings: <span className="text-white font-semibold">{ind.total_sightings} captures</span></p>
+                <p>First seen: <span className="text-white font-semibold">{formatDate(ind.first_seen_at)}</span></p>
+                <p>Last seen: <span className="text-white font-semibold">{formatDate(ind.last_seen_at)}</span></p>
+              </div>
+
+              <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 group-hover:translate-x-1 transition-transform pt-1">
+                <span>View Longitudinal Profile</span>
+                <ArrowRight className="h-3 w-3" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

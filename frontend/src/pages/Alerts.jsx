@@ -1,29 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BellRing, ShieldCheck, MapPin, UserPlus, Clock, AlertTriangle, Check } from 'lucide-react'
+import { 
+  Bell, 
+  AlertTriangle, 
+  CheckCircle2, 
+  Clock, 
+  MapPin, 
+  UserCheck, 
+  ArrowRight, 
+  ShieldAlert, 
+  Check, 
+  Layers 
+} from 'lucide-react'
 import { api } from '../api/client'
-import PageHeader from '../components/PageHeader'
-import TabBar from '../components/ui/tab-bar'
-import { Card, CardContent } from '../components/ui/card'
-import { Badge } from '../components/ui/badge'
-import { Button } from '../components/ui/button'
-import { Skeleton } from '../components/ui/skeleton'
-
-const TYPE_META = {
-  absence_anomaly: { label: 'Absence anomaly', icon: Clock, tone: 'amber' },
-  new_individual: { label: 'New individual', icon: UserPlus, tone: 'blue' },
-  location_jump: { label: 'Location jump', icon: MapPin, tone: 'violet' },
-}
-
-function StatusBadge({ status }) {
-  const map = {
-    open: { label: 'Open', variant: 'red' },
-    reviewed: { label: 'Reviewed', variant: 'amber' },
-    resolved: { label: 'Resolved', variant: 'green' },
-  }
-  const m = map[status] || { label: status, variant: 'neutral' }
-  return <Badge variant={m.variant} dot>{m.label}</Badge>
-}
+import { TopHeaderBar } from '../components/Navigation'
+import { formatDateTime } from '../lib/format'
 
 export default function Alerts() {
   const [alerts, setAlerts] = useState([])
@@ -31,24 +22,22 @@ export default function Alerts() {
   const [busyId, setBusyId] = useState(null)
 
   useEffect(() => {
-    api.alerts(filter === 'all' ? null : filter).then(setAlerts).catch(console.error)
-  }, [filter])
+    api.alerts().then(setAlerts).catch(() => setAlerts([]))
+  }, [])
 
-  const tabs = useMemo(() => {
-    const count = (s) => alerts.filter((a) => a.status === s).length
-    return [
-      { value: 'open', label: 'Open', count: count('open') },
-      { value: 'reviewed', label: 'Reviewed', count: count('reviewed') },
-      { value: 'all', label: 'All' },
-      { value: 'resolved', label: 'Resolved', count: count('resolved') },
-    ]
-  }, [alerts, filter])
+  const filtered = useMemo(
+    () => (filter === 'all' ? alerts : alerts.filter((alert) => alert.status === filter)),
+    [alerts, filter]
+  )
 
-  async function resolve(a) {
-    setBusyId(a.id)
+  const openCount = alerts.filter((a) => a.status === 'open').length
+  const resolvedCount = alerts.filter((a) => a.status === 'resolved').length
+
+  async function resolve(alert) {
+    setBusyId(alert.id)
     try {
-      await api.resolveAlert(a.id, 'Demo Ranger', 'resolved')
-      setAlerts((prev) => prev.map((x) => x.id === a.id ? { ...x, status: 'resolved', reviewed_by: 'Demo Ranger' } : x))
+      const updated = await api.resolveAlert(alert.id, 'Ranger Unit Alpha', 'resolved')
+      setAlerts((current) => current.map((item) => (item.id === updated.id ? updated : item)))
     } finally {
       setBusyId(null)
     }
@@ -56,75 +45,125 @@ export default function Alerts() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="Verification Workflow"
-        title="Ranger Alerts"
-        description="Human verification — WildTrace flags anomalies, rangers review and act."
-        icon={BellRing}
-        actions={<TabBar tabs={tabs} active={filter} onChange={setFilter} />}
+      {/* Top Header */}
+      <TopHeaderBar 
+        title="Ranger Verification & Alerts" 
+        subtitle="Human-in-the-loop decision support for biological anomalies and territorial absence flags" 
       />
 
-      {alerts.length === 0 && !busyId ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-500/15 text-brand-300">
-              <ShieldCheck className="h-7 w-7" />
-            </div>
-            <p className="mt-4 font-semibold text-white">No {filter} alerts</p>
-            <p className="mt-1 text-sm text-ink-500">The monitoring workflow is currently quiet.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4 animate-fade-up">
-          {alerts.length === 0 && [1, 2, 3].map((i) => <Skeleton key={i} className="h-28" />)}
-          {alerts.map((a) => {
-            const meta = TYPE_META[a.alert_type] || { label: a.alert_type, icon: AlertTriangle, tone: 'neutral' }
+      {/* Filter Tabs */}
+      <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-[#0f1511] border border-white/5">
+        <div className="flex items-center gap-2">
+          {['open', 'resolved', 'all'].map((tabKey) => {
+            const active = filter === tabKey
+            const count = tabKey === 'all' ? alerts.length : tabKey === 'open' ? openCount : resolvedCount
             return (
-              <Card key={a.id} className={`overflow-hidden transition-shadow hover:shadow-cardHover ${a.status === 'open' ? 'border-l-4 border-l-red-400' : ''}`}>
-                <CardContent className="p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                          a.status === 'resolved' ? 'bg-green-500/15 text-green-300' : a.status === 'reviewed' ? 'bg-accent-500/15 text-accent-300' : 'bg-red-500/15 text-red-300'
-                        }`}>
-                          {a.status === 'resolved' ? <Check className="h-4 w-4" /> : <meta.icon className="h-4 w-4" />}
-                        </span>
-                        <StatusBadge status={a.status} />
-                        <Badge variant={meta.tone}>{meta.label}</Badge>
-                        {a.individual_id && (
-                          <Link to={`/individuals/${a.individual_id}`} className="text-sm font-semibold text-brand-400 hover:underline">
-                            {a.individual_id}
-                          </Link>
-                        )}
-                      </div>
-                      <p className="mt-2 text-sm text-ink-200">{a.description}</p>
-                      <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-500">
-                        <Clock className="h-3.5 w-3.5" />
-                        {new Date(a.created_at).toLocaleString()}
-                        {a.reviewed_by ? ` · reviewed by ${a.reviewed_by}` : ''}
-                      </p>
-                    </div>
-
-                    {a.status !== 'resolved' && (
-                      <div className="shrink-0 sm:pl-4">
-                        <Button
-                          size="sm"
-                          variant={a.status === 'open' ? 'default' : 'secondary'}
-                          onClick={() => resolve(a)}
-                          disabled={busyId === a.id}
-                        >
-                          {busyId === a.id ? 'Resolving…' : 'Resolve'}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              <button
+                key={tabKey}
+                onClick={() => setFilter(tabKey)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                  active
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+                    : 'text-white/50 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <span>{tabKey}</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] ${active ? 'bg-emerald-500 text-black font-extrabold' : 'bg-white/10 text-white/70'}`}>
+                  {count}
+                </span>
+              </button>
             )
           })}
         </div>
-      )}
+
+        <div className="text-xs text-white/50">
+          Auto-Flag Threshold: <span className="text-emerald-400 font-semibold">14 Days Absence</span>
+        </div>
+      </div>
+
+      {/* Alert Cards List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {filtered.length > 0 ? (
+          filtered.map((alert) => {
+            const isResolved = alert.status === 'resolved'
+            return (
+              <div
+                key={alert.id}
+                className="group relative flex flex-col justify-between p-5 rounded-2xl bg-[#0f1511] border border-white/5 hover:border-emerald-500/30 transition-all shadow-lg space-y-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${
+                      isResolved 
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                        : 'bg-red-500/10 border-red-500/30 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)]'
+                    }`}>
+                      {isResolved ? <CheckCircle2 className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-syne text-base font-bold text-white">
+                          {alert.individual_id ? `Individual ${alert.individual_id}` : 'General Anomaly'}
+                        </h4>
+                        <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-bold ${
+                          isResolved 
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' 
+                            : 'bg-red-500/20 text-red-400 border border-red-500/40'
+                        }`}>
+                          {alert.status}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-white/40 mt-0.5">
+                        Logged: {formatDateTime(alert.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-xs text-white/70 leading-relaxed bg-black/30 p-3 rounded-xl border border-white/5 font-body-md">
+                  {alert.description}
+                </p>
+
+                {/* Card Action Footer */}
+                <div className="flex items-center justify-between pt-2 border-t border-white/5 text-xs">
+                  {alert.individual_id ? (
+                    <Link
+                      to={`/individuals/${alert.individual_id}`}
+                      className="text-emerald-400 hover:text-emerald-300 font-semibold inline-flex items-center gap-1 text-[11px]"
+                    >
+                      View Profile <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  ) : (
+                    <span className="text-white/40 text-[11px]">System Record</span>
+                  )}
+
+                  {!isResolved ? (
+                    <button
+                      onClick={() => resolve(alert)}
+                      disabled={busyId === alert.id}
+                      className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs uppercase tracking-wider shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all disabled:opacity-50"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                      {busyId === alert.id ? 'Resolving...' : 'Verify & Resolve'}
+                    </button>
+                  ) : (
+                    <span className="text-[11px] text-emerald-400 font-medium">
+                      Resolved by {alert.reviewed_by || 'Ranger Team'}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )
+          })
+        ) : (
+          <div className="col-span-2 py-16 text-center rounded-2xl bg-[#0f1511] border border-white/5 space-y-2">
+            <CheckCircle2 className="h-10 w-10 text-emerald-400 mx-auto" />
+            <p className="font-syne text-lg font-bold text-white">No active alerts in this view</p>
+            <p className="text-xs text-white/50">All anomalies for this filter have been reviewed and verified.</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

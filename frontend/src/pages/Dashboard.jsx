@@ -1,182 +1,262 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { 
+  TreePine, 
+  Trees, 
+  PawPrint, 
+  FileText, 
+  Users, 
+  ShieldCheck, 
+  ArrowRight, 
+  Activity
+} from 'lucide-react'
 import {
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid
 } from 'recharts'
-import { Users, Camera, BellRing, Layers, ArrowRight, Clock, MapPin } from 'lucide-react'
 import { api } from '../api/client'
-import StatCard from '../components/ui/stat-card'
-import PageHeader from '../components/PageHeader'
-import SightingCard from '../components/SightingCard'
-import AlertBanner from '../components/AlertBanner'
-import { Skeleton } from '../components/ui/skeleton'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
-import { Badge } from '../components/ui/badge'
+import { TopHeaderBar } from '../components/Navigation'
+import { formatDateTime, safeImageUrl } from '../lib/format'
 
-function chartTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="rounded-lg border border-ink-700 bg-[#15181d] px-3 py-2 text-xs shadow-popover">
-      <p className="font-semibold text-white">{label}</p>
-      {payload.map((p) => (
-        <p key={p.dataKey} className="text-ink-300">
-          {p.name}: <span className="font-semibold text-white">{p.value}</span>
-        </p>
-      ))}
-    </div>
-  )
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function buildMonthlyCounts(sightings) {
+  const counts = MONTHS.map(() => 0)
+  sightings.forEach((s) => {
+    const m = new Date(s.captured_at).getMonth()
+    if (m >= 0 && m <= 11) counts[m] += 1
+  })
+  return MONTHS.map((month, i) => ({ month, count: counts[i] }))
 }
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null)
-  const [individuals, setIndividuals] = useState([])
+  const [chartData, setChartData] = useState(MONTHS.map((month) => ({ month, count: 0 })))
 
   useEffect(() => {
-    api.stats().then(setStats).catch(console.error)
-    api.individuals(8).then(setIndividuals).catch(console.error)
+    api.stats().then(setStats).catch(() => setStats(null))
+    api.sightings({ limit: 1000 }).then((rows) => setChartData(buildMonthlyCounts(rows))).catch(() => {})
   }, [])
 
-  const trend = useMemo(() => {
-    if (!stats?.recent_sightings?.length) return []
-    const counts = {}
-    stats.recent_sightings.forEach((s) => {
-      const day = new Date(s.captured_at).toISOString().slice(0, 10)
-      counts[day] = (counts[day] || 0) + 1
-    })
-    return Object.entries(counts)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([day, count]) => ({
-        day: new Date(day + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-        Sightings: count,
-      }))
-  }, [stats])
+  const recentSightings = stats?.recent_sightings || []
+  const totalIndividuals = stats?.total_individuals ?? 0
+  const totalSightings = stats?.total_sightings ?? 0
+  const openAlerts = stats?.open_alerts ?? 0
 
-  const leaderboard = useMemo(() => [...individuals].sort((a, b) => (b.total_sightings ?? 0) - (a.total_sightings ?? 0)).slice(0, 8), [individuals])
-  const maxSightings = leaderboard[0]?.total_sightings || 1
+  // Left Quick Action Cards
+  const quickActions = [
+    { label: 'Species Census', icon: TreePine, to: '/insights', count: `${totalIndividuals} Ind.` },
+    { label: 'Forest Habitats', icon: Trees, to: '/map', count: `${recentSightings.length} Recent` },
+    { label: 'Wildlife Radar', icon: PawPrint, to: '/insights', count: `${totalSightings} Logs` },
+    { label: 'Field Intake', icon: FileText, to: '/upload', count: 'Active' },
+    { label: 'Ranger Alerts', icon: Users, to: '/alerts', count: `${openAlerts} Open` },
+    { label: 'ATRW Re-ID', icon: ShieldCheck, to: '/insights', count: 'Live' },
+  ]
 
-  if (!stats) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-14 w-80" />
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-28" />)}
-        </div>
-        <div className="grid gap-6 lg:grid-cols-3">
-          <Skeleton className="h-80 lg:col-span-2" />
-          <Skeleton className="h-80" />
-        </div>
-      </div>
-    )
-  }
+  // Reserve Cards
+  const reserveCards = [
+    {
+      title: 'Sikhote-Alin Core',
+      region: 'Amur Tiger · Russia',
+      bg: '/images/card_crooked_forest.jpg',
+      badge: 'Protected Zone',
+      to: '/map'
+    },
+    {
+      title: 'Bikin Valley Reserve',
+      region: 'Amur Leopard · Russia',
+      bg: '/images/card_jiuzhaigou_purple.jpg',
+      badge: 'Corridor',
+      to: '/map'
+    },
+    {
+      title: 'Sikhote-Alin Boreal',
+      region: 'Amur Tiger · Russia',
+      bg: '/images/card_redwood_forest.jpg',
+      badge: 'Core Habitat',
+      to: '/map'
+    },
+    {
+      title: 'Coastal Ridge Grid',
+      region: 'Amur Tiger · Russia',
+      bg: '/images/card_daintree_blue.jpg',
+      badge: 'Survey Grid',
+      to: '/map'
+    },
+  ]
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="Conservation Intelligence"
-        title="Dashboard"
-        description="Live monitoring of tracked tigers, sightings and flagged alerts."
-      />
+      {/* Top Header */}
+      <TopHeaderBar title="Operational Overview" subtitle="Real-time biological monitoring & longitudinal individual tracking" />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 animate-fade-up">
-        <StatCard icon={Users} label="Known Individuals" value={stats.total_individuals} tone="green" hint="across all reserves" />
-        <StatCard icon={Camera} label="Total Sightings" value={stats.total_sightings} tone="blue" hint="all-time captures" />
-        <StatCard icon={BellRing} label="Open Alerts" value={stats.open_alerts} tone="red" hint="awaiting verification" />
-        <StatCard icon={Layers} label="Species Tracked" value={Object.keys(stats.species_breakdown).length} tone="amber" hint="re-ID coverage" />
-      </div>
+      {/* Main Grid: Left 2x4 Icon Grid + Right Hero Banner & Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        {/* Left 2x4 Quick Action Tiles (lg:col-span-4) */}
+        <div className="lg:col-span-4 grid grid-cols-2 gap-3.5">
+          {quickActions.map((item, idx) => {
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.label}
+                to={item.to}
+                className="group relative flex flex-col items-center justify-center p-5 rounded-2xl bg-[#0f1511] border border-white/5 hover:border-emerald-500/40 hover:bg-[#121c16] transition-all transform hover:-translate-y-1 shadow-lg text-center"
+              >
+                {/* Glowing neon green icon */}
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#16251b] border border-emerald-500/30 text-emerald-400 group-hover:scale-110 group-hover:shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-all mb-3">
+                  <Icon className="h-6 w-6 stroke-[1.75]" />
+                </div>
+                <p className="text-xs font-semibold text-white group-hover:text-emerald-400 transition-colors">
+                  {item.label}
+                </p>
+                <span className="text-[10px] text-white/40 mt-0.5">{item.count}</span>
+              </Link>
+            )
+          })}
+        </div>
 
-      {stats.open_alerts > 0 && <AlertBanner count={stats.open_alerts} />}
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Sightings over time */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex-row items-center justify-between">
-            <div>
-              <CardTitle>Sighting Activity</CardTitle>
-              <p className="text-sm text-ink-500">Recent captures by day</p>
+        {/* Right Section: Hero Banner + 4 Reserve Cards (lg:col-span-8) */}
+        <div className="lg:col-span-8 space-y-6">
+          
+          {/* Hero Banner with Silhouette Wolf & Moon */}
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#0d1410] p-6 sm:p-8 min-h-[200px] flex flex-col justify-between shadow-2xl">
+            {/* Background Image */}
+            <div 
+              className="absolute inset-0 bg-cover bg-right sm:bg-center opacity-85 pointer-events-none"
+              style={{ backgroundImage: "url('/images/hero_night_wildlife.jpg')" }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/60 to-transparent" />
             </div>
-            <Badge variant="neutral" dot>auto-refresh</Badge>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={trend} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
-                <defs>
-                  <linearGradient id="sightFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#2e8f51" stopOpacity={0.32} />
-                    <stop offset="100%" stopColor="#2e8f51" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 18%)" vertical={false} />
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#8b94a1' }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#8b94a1' }} axisLine={false} tickLine={false} />
-                <Tooltip content={chartTooltip} cursor={{ stroke: 'hsl(0 0% 25%)' }} />
-                <Area type="natural" dataKey="Sightings" stroke="#2e8f51" strokeWidth={2.5} fill="url(#sightFill)" dot={{ r: 3, fill: '#2e8f51', strokeWidth: 0 }} activeDot={{ r: 5 }} />
-              </AreaChart>
-            </ResponsiveContainer>
-            {trend.length === 0 && (
-              <p className="py-16 text-center text-sm text-ink-500">No recent sightings to chart.</p>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Leaderboard */}
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle>Top Individuals</CardTitle>
-            <Link to="/insights" className="inline-flex items-center gap-1 text-xs font-semibold text-brand-400 hover:text-brand-300">
-              View all <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </CardHeader>
-          <CardContent className="pt-2">
-            <ul className="divide-y divide-ink-700/40">
-              {leaderboard.map((ind, idx) => (
-                <li key={ind.id} className="flex items-center gap-3 py-2.5">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-ink-800/40 text-xs font-bold text-ink-300">
-                    {idx + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <Link to={`/individuals/${ind.id}`} className="block truncate text-sm font-semibold text-ink-100 hover:text-brand-300">
-                      {ind.id}
-                    </Link>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink-800/40">
-                      <div className="h-full rounded-full bg-brand-500" style={{ width: `${(ind.total_sightings / maxSightings) * 100}%` }} />
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <div className="text-sm font-bold text-white">{ind.total_sightings}</div>
-                    <div className="text-[11px] text-ink-500">sightings</div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
+            {/* Banner Copy & Glowing Green CTA */}
+            <div className="relative z-10 max-w-md space-y-3">
+              <h2 className="font-syne text-xl sm:text-2xl font-bold leading-snug text-white">
+                We are making wildlife tracking <span className="text-emerald-400 font-extrabold drop-shadow-[0_0_12px_rgba(16,185,129,0.6)]">autonomous</span>, one individual at a time.
+              </h2>
+              <p className="text-xs text-white/70 leading-relaxed">
+                YOLOv8 animal localization paired with triplet-loss re-identification vectors.
+              </p>
+            </div>
 
-      {/* Recent activity */}
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <div>
-            <CardTitle>Recent Activity</CardTitle>
-            <p className="text-sm text-ink-500">Latest verified sightings across the reserve</p>
+            <div className="relative z-10 pt-4">
+              <Link
+                to="/upload"
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-black shadow-[0_0_25px_rgba(16,185,129,0.5)] transition-all transform hover:-translate-y-0.5"
+              >
+                Log New Sighting <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
           </div>
-          <span className="hidden items-center gap-1.5 text-xs text-ink-500 sm:inline-flex">
-            <Clock className="h-3.5 w-3.5" /> last {stats.recent_sightings.length} events
-          </span>
-        </CardHeader>
-        <CardContent>
-          {stats.recent_sightings.length === 0 ? (
-            <div className="py-12 text-center text-sm text-ink-500">
-              No sightings yet — upload one or run the seed script.
+
+          {/* 4 Destination / Reserve Cards Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+            {reserveCards.map((card) => (
+              <Link
+                key={card.title}
+                to={card.to}
+                className="group relative overflow-hidden rounded-2xl border border-white/10 aspect-[3/4] flex flex-col justify-end p-4 shadow-xl transition-all transform hover:-translate-y-1.5 hover:border-emerald-500/40"
+              >
+                {/* Background Image */}
+                <div 
+                  className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+                  style={{ backgroundImage: `url('${card.bg}')` }}
+                />
+                {/* Overlay Vignette */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent" />
+
+                {/* Content */}
+                <div className="relative z-10 space-y-1">
+                  <h4 className="font-syne text-xs sm:text-sm font-bold text-white group-hover:text-emerald-400 transition-colors leading-tight">
+                    {card.title}
+                  </h4>
+                  <p className="text-[10px] text-white/60 leading-tight">
+                    {card.region}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+        </div>
+      </div>
+
+      {/* Bottom Section: Multi-Color Glowing Spline Analytics Chart */}
+      <div className="rounded-3xl border border-white/5 bg-[#0e1410] p-6 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-emerald-400" />
+              <h3 className="font-syne text-base md:text-lg font-bold text-white">
+                Annual Sighting Detections & Encounter Activity
+              </h3>
             </div>
-          ) : (
-            <div className="grid gap-x-8 gap-y-1 sm:grid-cols-2">
-              {stats.recent_sightings.slice(0, 6).map((s) => (
-                <SightingCard key={s.id} sighting={s} compact />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            <p className="text-xs text-white/50 mt-0.5">
+              Aggregated camera-trap sightings and verified re-identification throughput
+            </p>
+          </div>
+        </div>
+
+        {/* Glowing Spline Chart */}
+        <div className="h-64 w-full pt-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="neonSpline" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#10b981" />
+                  <stop offset="25%" stopColor="#06b6d4" />
+                  <stop offset="50%" stopColor="#3b82f6" />
+                  <stop offset="75%" stopColor="#a855f7" />
+                  <stop offset="100%" stopColor="#ec4899" />
+                </linearGradient>
+                <linearGradient id="neonSplineFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="#ec4899" stopOpacity={0.0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+              <XAxis 
+                dataKey="month" 
+                stroke="rgba(255,255,255,0.4)" 
+                fontSize={11} 
+                tickLine={false} 
+                axisLine={false} 
+              />
+              <YAxis 
+                stroke="rgba(255,255,255,0.4)" 
+                fontSize={11} 
+                tickLine={false} 
+                axisLine={false} 
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#0d1410',
+                  borderColor: 'rgba(16,185,129,0.3)',
+                  borderRadius: '12px',
+                  color: '#fff',
+                  fontSize: '12px',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.8)'
+                }}
+                formatter={(value) => [`${value} Sightings`, 'Detections']}
+              />
+              <Area
+                type="monotone"
+                dataKey="count"
+                stroke="url(#neonSpline)"
+                strokeWidth={3}
+                fill="url(#neonSplineFill)"
+                dot={{ fill: '#10b981', r: 3, strokeWidth: 1, stroke: '#fff' }}
+                activeDot={{ r: 6, fill: '#ec4899', stroke: '#fff', strokeWidth: 2 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
     </div>
   )
 }

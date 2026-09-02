@@ -3,17 +3,18 @@ import { cva } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
 
 const badgeVariants = cva(
-  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors',
+  'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold tracking-wide transition-colors',
   {
     variants: {
       variant: {
-        default: 'bg-brand-500/15 text-brand-300 ring-1 ring-inset ring-brand-500/30',
-        neutral: 'bg-ink-900/10 text-ink-200 ring-1 ring-inset ring-ink-700',
-        amber: 'bg-accent-500/15 text-accent-300 ring-1 ring-inset ring-accent-500/30',
-        red: 'bg-red-600/15 text-red-300 ring-1 ring-inset ring-red-500/30',
-        green: 'bg-green-600/15 text-green-300 ring-1 ring-inset ring-green-500/30',
-        blue: 'bg-sky-600/15 text-sky-300 ring-1 ring-inset ring-sky-500/30',
-        outline: 'border border-ink-600 text-ink-300',
+        default: 'bg-primary-container/80 text-primary ring-1 ring-inset ring-primary/25',
+        neutral: 'bg-white/6 text-on-surface-variant ring-1 ring-inset ring-white/10',
+        amber: 'bg-secondary/15 text-secondary-fixed ring-1 ring-inset ring-secondary/25',
+        red: 'bg-alert-red/15 text-red-200 ring-1 ring-inset ring-alert-red/25',
+        green: 'bg-primary/15 text-primary-fixed ring-1 ring-inset ring-primary/25',
+        blue: 'bg-sky-600/15 text-sky-200 ring-1 ring-inset ring-sky-500/30',
+        outline: 'border border-white/15 text-on-surface-variant',
+        gold: 'bg-earth-gold/15 text-earth-gold ring-1 ring-inset ring-earth-gold/25',
       },
       dot: { true: 'before:content-[""] before:h-1.5 before:w-1.5 before:rounded-full before:bg-current' },
     },

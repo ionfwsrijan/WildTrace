@@ -1,6 +1,7 @@
 import React from 'react'
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
 import L from 'leaflet'
+import { formatDateTime } from '../lib/format'
 
 const markerIcon = L.icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -19,7 +20,7 @@ export default function MapView({ sightings, height = 420 }) {
     : [46.0, 136.5]
 
   return (
-    <MapContainer center={center} zoom={8} style={{ height, width: '100%' }}>
+    <MapContainer center={center} zoom={8} style={{ height, width: '100%', borderRadius: '1.25rem' }}>
       <TileLayer
         attribution='Powered by Esri'
         url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" />
@@ -28,6 +29,7 @@ export default function MapView({ sightings, height = 420 }) {
           <Popup>
             Sighting {i + 1} · {new Date(s.captured_at).toLocaleString()}
             <br />{s.zone_name || 'Unknown zone'}
+            <br />{formatDateTime(s.captured_at)}
           </Popup>
         </Marker>
       ))}
